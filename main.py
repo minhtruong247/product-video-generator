@@ -10,6 +10,8 @@ import asyncio
 from rembg import remove
 from PIL import Image, ImageDraw, ImageFilter
 import cv2
+import os
+os.environ['OPENCV_VIDEOIO_DEBUG'] = '0'
 import numpy as np
 from moviepy.editor import ImageClip, CompositeVideoClip, concatenate_videoclips
 from moviepy.video.VideoClip import VideoClip
