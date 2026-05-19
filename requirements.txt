@@ -1,0 +1,10 @@
+rembg==0.0.50
+opencv-python==4.8.0
+pillow==10.0.0
+numpy==1.24.0
+moviepy==1.0.3
+ffmpeg-python==0.2.1
+fastapi==0.104.0
+uvicorn==0.24.0
+python-multipart==0.0.6
+gunicorn==21.2.0
