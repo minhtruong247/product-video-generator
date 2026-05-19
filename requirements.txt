@@ -1,12 +1,9 @@
 fastapi
 uvicorn
 python-multipart
-gunicorn
 pillow
 numpy
 opencv-python-headless
 scipy
 scikit-image
-imageio
-imageio-ffmpeg
 pydantic
