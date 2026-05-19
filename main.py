@@ -7,7 +7,6 @@ import os
 from pathlib import Path
 import tempfile
 import asyncio
-from rembg import remove
 from PIL import Image, ImageDraw, ImageFilter
 import cv2
 import os
@@ -42,11 +41,30 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 # ==================== BACKGROUND REMOVAL ====================
 
 def remove_background(image_path: str) -> Image.Image:
-    """Tách nền từ ảnh"""
+    """Tách nền từ ảnh bằng color segmentation"""
     try:
-        input_image = Image.open(image_path).convert("RGBA")
-        output_image = remove(input_image)
-        return output_image
+        from scipy import ndimage
+        from skimage.color import rgb2hsv
+        
+        # Đọc ảnh
+        img = Image.open(image_path).convert("RGB")
+        img_array = np.array(img, dtype=np.float32) / 255.0
+        
+        # Tính lightness
+        lightness = np.mean(img_array, axis=2)
+        
+        # Tạo mask - pixel nào là object (không phải nền trắng/sáng)
+        mask = lightness < 0.85
+        
+        # Làm mịn mask
+        mask = ndimage.binary_closing(mask, iterations=2)
+        mask = ndimage.binary_opening(mask, iterations=1)
+        
+        # Tạo output RGBA
+        result_array = np.array(img.convert('RGBA'))
+        result_array[~mask] = (255, 255, 255, 0)
+        
+        return Image.fromarray(result_array)
     except Exception as e:
         print(f"Error removing background: {e}")
         raise
