@@ -12,7 +12,90 @@ import cv2
 import os
 os.environ['OPENCV_VIDEOIO_DEBUG'] = '0'
 import numpy as np
-from moviepy.editor import ImageClip, CompositeVideoClip, concatenate_videoclips
+# ==================== VIDEO GENERATION ====================
+
+def create_rotating_video(
+    image_path: str,
+    duration: int = 5,
+    fps: int = 30,
+    output_path: str = "output.mp4"
+) -> str:
+    """Tạo video xoay 360 độ"""
+    try:
+        import imageio
+        
+        img = Image.open(image_path)
+        img_array = np.array(img)
+        h, w = img_array.shape[:2]
+        
+        total_frames = duration * fps
+        frames = []
+        
+        for i in range(total_frames):
+            t = i / fps
+            angle = (t / duration) * 360
+            
+            # Xoay ảnh
+            M = cv2.getRotationMatrix2D((w/2, h/2), angle, 1.0)
+            rotated = cv2.warpAffine(img_array, M, (w, h))
+            frames.append(rotated)
+        
+        # Lưu video
+        writer = imageio.get_writer(output_path, fps=fps, codec='libx264')
+        for frame in frames:
+            writer.append_data(frame)
+        writer.close()
+        
+        return output_path
+    except Exception as e:
+        print(f"Error creating rotating video: {e}")
+        raise
+
+def create_zoom_video(
+    image_path: str,
+    duration: int = 5,
+    fps: int = 30,
+    output_path: str = "output.mp4"
+) -> str:
+    """Tạo video zoom in/out"""
+    try:
+        import imageio
+        
+        img = Image.open(image_path)
+        img_array = np.array(img)
+        h, w = img_array.shape[:2]
+        
+        total_frames = duration * fps
+        frames = []
+        
+        for i in range(total_frames):
+            t = i / fps
+            scale = 0.8 + (t / duration) * 0.4
+            
+            new_h = int(h * scale)
+            new_w = int(w * scale)
+            
+            resized = cv2.resize(img_array, (new_w, new_h))
+            
+            canvas = np.ones((h, w, 3), dtype=np.uint8) * 255
+            
+            y_offset = (h - new_h) // 2
+            x_offset = (w - new_w) // 2
+            
+            if y_offset >= 0 and x_offset >= 0:
+                canvas[y_offset:y_offset+new_h, x_offset:x_offset+new_w] = resized
+            
+            frames.append(canvas)
+        
+        writer = imageio.get_writer(output_path, fps=fps, codec='libx264')
+        for frame in frames:
+            writer.append_data(frame)
+        writer.close()
+        
+        return output_path
+    except Exception as e:
+        print(f"Error creating zoom video: {e}")
+        raise
 from moviepy.video.VideoClip import VideoClip
 import imageio
 

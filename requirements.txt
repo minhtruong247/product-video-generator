@@ -7,6 +7,6 @@ numpy
 opencv-python-headless
 scipy
 scikit-image
-moviepy
 imageio
 imageio-ffmpeg
+pydantic
