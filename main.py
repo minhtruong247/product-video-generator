@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, BackgroundTasks
+from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,94 +9,7 @@ import tempfile
 import asyncio
 from PIL import Image, ImageDraw, ImageFilter
 import cv2
-import os
-os.environ['OPENCV_VIDEOIO_DEBUG'] = '0'
 import numpy as np
-# ==================== VIDEO GENERATION ====================
-
-def create_rotating_video(
-    image_path: str,
-    duration: int = 5,
-    fps: int = 30,
-    output_path: str = "output.mp4"
-) -> str:
-    """Tạo video xoay 360 độ"""
-    try:
-        import imageio
-        
-        img = Image.open(image_path)
-        img_array = np.array(img)
-        h, w = img_array.shape[:2]
-        
-        total_frames = duration * fps
-        frames = []
-        
-        for i in range(total_frames):
-            t = i / fps
-            angle = (t / duration) * 360
-            
-            # Xoay ảnh
-            M = cv2.getRotationMatrix2D((w/2, h/2), angle, 1.0)
-            rotated = cv2.warpAffine(img_array, M, (w, h))
-            frames.append(rotated)
-        
-        # Lưu video
-        writer = imageio.get_writer(output_path, fps=fps, codec='libx264')
-        for frame in frames:
-            writer.append_data(frame)
-        writer.close()
-        
-        return output_path
-    except Exception as e:
-        print(f"Error creating rotating video: {e}")
-        raise
-
-def create_zoom_video(
-    image_path: str,
-    duration: int = 5,
-    fps: int = 30,
-    output_path: str = "output.mp4"
-) -> str:
-    """Tạo video zoom in/out"""
-    try:
-        import imageio
-        
-        img = Image.open(image_path)
-        img_array = np.array(img)
-        h, w = img_array.shape[:2]
-        
-        total_frames = duration * fps
-        frames = []
-        
-        for i in range(total_frames):
-            t = i / fps
-            scale = 0.8 + (t / duration) * 0.4
-            
-            new_h = int(h * scale)
-            new_w = int(w * scale)
-            
-            resized = cv2.resize(img_array, (new_w, new_h))
-            
-            canvas = np.ones((h, w, 3), dtype=np.uint8) * 255
-            
-            y_offset = (h - new_h) // 2
-            x_offset = (w - new_w) // 2
-            
-            if y_offset >= 0 and x_offset >= 0:
-                canvas[y_offset:y_offset+new_h, x_offset:x_offset+new_w] = resized
-            
-            frames.append(canvas)
-        
-        writer = imageio.get_writer(output_path, fps=fps, codec='libx264')
-        for frame in frames:
-            writer.append_data(frame)
-        writer.close()
-        
-        return output_path
-    except Exception as e:
-        print(f"Error creating zoom video: {e}")
-        raise
-from moviepy.video.VideoClip import VideoClip
 import imageio
 
 # Tạo app FastAPI
@@ -127,13 +40,12 @@ def remove_background(image_path: str) -> Image.Image:
     """Tách nền từ ảnh bằng color segmentation"""
     try:
         from scipy import ndimage
-        from skimage.color import rgb2hsv
         
         # Đọc ảnh
         img = Image.open(image_path).convert("RGB")
         img_array = np.array(img, dtype=np.float32) / 255.0
         
-        # Tính lightness
+        # Tính độ sáng (lightness)
         lightness = np.mean(img_array, axis=2)
         
         # Tạo mask - pixel nào là object (không phải nền trắng/sáng)
@@ -248,28 +160,20 @@ def create_rotating_video(
         img_array = np.array(img)
         h, w = img_array.shape[:2]
         
-        # Tính số frame
         total_frames = duration * fps
+        frames = []
         
-        # Hàm tạo frame có rotation
-        def make_frame(t):
+        for i in range(total_frames):
+            t = i / fps
             angle = (t / duration) * 360
             
             # Xoay ảnh
             M = cv2.getRotationMatrix2D((w/2, h/2), angle, 1.0)
             rotated = cv2.warpAffine(img_array, M, (w, h))
-            
-            return rotated
-        
-        # Tạo video
-        frames = []
-        for i in range(total_frames):
-            t = i / fps
-            frame = make_frame(t)
-            frames.append(frame)
+            frames.append(rotated)
         
         # Lưu video
-        writer = imageio.get_writer(output_path, fps=fps)
+        writer = imageio.get_writer(output_path, fps=fps, codec='libx264')
         for frame in frames:
             writer.append_data(frame)
         writer.close()
@@ -292,37 +196,28 @@ def create_zoom_video(
         h, w = img_array.shape[:2]
         
         total_frames = duration * fps
+        frames = []
         
-        def make_frame(t):
-            # Zoom từ 0.8 đến 1.2
+        for i in range(total_frames):
+            t = i / fps
             scale = 0.8 + (t / duration) * 0.4
             
-            # Tính kích thước mới
             new_h = int(h * scale)
             new_w = int(w * scale)
             
-            # Resize ảnh
             resized = cv2.resize(img_array, (new_w, new_h))
             
-            # Tạo canvas
             canvas = np.ones((h, w, 3), dtype=np.uint8) * 255
             
-            # Paste ở giữa
             y_offset = (h - new_h) // 2
             x_offset = (w - new_w) // 2
             
             if y_offset >= 0 and x_offset >= 0:
                 canvas[y_offset:y_offset+new_h, x_offset:x_offset+new_w] = resized
             
-            return canvas
+            frames.append(canvas)
         
-        frames = []
-        for i in range(total_frames):
-            t = i / fps
-            frame = make_frame(t)
-            frames.append(frame)
-        
-        writer = imageio.get_writer(output_path, fps=fps)
+        writer = imageio.get_writer(output_path, fps=fps, codec='libx264')
         for frame in frames:
             writer.append_data(frame)
         writer.close()
