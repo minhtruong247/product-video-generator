@@ -4,7 +4,9 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 import shutil
 from pathlib import Path
+import cv2
 from PIL import Image
+import io
 import numpy as np
 from scipy import ndimage
 
@@ -62,14 +64,6 @@ async def info():
 async def remove_background(file: UploadFile = File(...)):
     """
     API để tách nền ảnh
-    
-    Parameters:
-    - file: Ảnh JPG hoặc PNG
-    
-    Returns:
-    - status: success/error
-    - filename: Tên file đã xử lý
-    - url: Link download
     """
     try:
         # Lưu file upload
@@ -79,14 +73,15 @@ async def remove_background(file: UploadFile = File(...)):
         with open(input_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         
-        # Đọc ảnh
-        img = Image.open(input_path).convert("RGB")
-        img_array = np.array(img, dtype=np.float32) / 255.0
+        # Đọc ảnh bằng OpenCV
+        img_cv = cv2.imread(input_path)
+        img_rgb = cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)
+        img_array = img_rgb.astype(np.float32) / 255.0
         
         # Tính độ sáng
         lightness = np.mean(img_array, axis=2)
         
-        # Tạo mask - pixel nào là object
+        # Tạo mask
         mask = lightness < 0.85
         
         # Làm mịn mask
@@ -94,9 +89,12 @@ async def remove_background(file: UploadFile = File(...)):
         mask = ndimage.binary_opening(mask, iterations=1)
         
         # Tạo RGBA
-        result_array = np.array(img.convert('RGBA'))
+        result_array = np.array(img_rgb)
+        result_array = np.dstack([result_array, np.ones(result_array.shape[:2]) * 255])
         result_array[~mask] = (255, 255, 255, 0)
-        result = Image.fromarray(result_array)
+        
+        # Convert to PIL Image
+        result = Image.fromarray(result_array.astype('uint8'), 'RGBA')
         
         # Lưu result
         output_filename = f"removed_{Path(filename).stem}.png"
@@ -126,10 +124,6 @@ async def add_background(
 ):
     """
     API để thêm background
-    
-    Parameters:
-    - file: Ảnh (PNG trong suốt hoặc JPG)
-    - bg_color: white, black, gray
     """
     try:
         filename = file.filename
@@ -139,7 +133,10 @@ async def add_background(
             shutil.copyfileobj(file.file, buffer)
         
         # Đọc ảnh
-        img = Image.open(input_path).convert("RGBA")
+        img_cv = cv2.imread(input_path)
+        img_rgb = cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)
+        img = Image.fromarray(img_rgb)
+        img = img.convert("RGBA")
         
         # Tạo background
         if bg_color == "white":
